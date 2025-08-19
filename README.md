@@ -1,20 +1,84 @@
 # Rle boot protocol
 
-**RLE is a modern boot protocol designed to provide a standardized and strict way for the kernel to communicate with the information provided by the bootloader.**
+RLE boot protocol is a standard aimed at providing a strict method for communicating information from the bootloader to the kernel. It is based on standards such as Limine’s, although it adds its own elements, and the ones taken from Limine are modified to adapt to the vision of the boot protocol.
 
-## Who is the RLE boot protocol intended for?
-It is aimed at hobbyist operating systems but also at real-world operating systems. RLE is designed to be as flexible as possible and to adapt to any use case.
+RLE has the philosophy of being simple, flexible, and pedantic. Any implementation of RLE can be added to the repository as long as it complies with the standard. Any type of feature is welcome; this is done with the aim of avoiding fragmentation, although it must first be submitted as an issue. If you want to contribute to RLE, please read CONTRIBUTING.md
 
-## Dictionary
+# Note
 
-| Word | Meaning                             |
-|------|-------------------------------------|
-| u8  | Unsigned int 8 bits                |
-| u16 | Unsigned int 16 bits, little-endian |
-| u32 | Unsigned int 32 bits, little-endian |
-| u64 | Unsigned int 64 bits, little-endian |
-| struct | Data structure, always packed |
+All structures are packed. Look up how to mark a structure as packed in your programming language. In languages like Rust, mark your structures that interact with the protocol using ``#[repr(C, packed)]``
 
-## Table of Contents
+This specification for structures uses the following format name: type which can be easily adapted to C as type name. For example, if a part of the specification uses ``num: u32``, it can be adapted to ``uint32_t num``.
 
-- [Boot tables](./boot-tables.md)
+# Revisions
+
+The protocol manages the version in which the kernel is to boot. In this case—similar to Limine—it is handled as follows: `1` (there is no default selection, so the kernel must explicitly know which protocol version it intends to use).
+
+The `.revision` section must be present and contain the following list:
+```
+[ 0xA3F1C7D4B9826E5F, 0x7D4E9B3A1C6F8D20, BASE_REVISION_NUMBER ]
+```
+
+This list consists of `u64` (unsigned 64‑bit) integers. The bootloader must read this section, verify that the two magic numbers are correct, and then boot the kernel using the version specified by `BASE_REVISION_NUMBER`.
+
+# Requests/Response
+
+RLE agrees with Limine that requests are an excellent way to obtain data from the bootloader, and for developer convenience we use requests. A simple way to define requests is that they are hooks to tell the bootloader to look for information requested by the kernel. An important detail is that there can only be one request of the same type; if the bootloader finds two requests, it must refuse to boot.
+
+All requests, including the start and end markers, go in the .requests section.
+
+All of this is done through structures, which usually follow this base. Some may add more information, which will be documented later.
+
+```
+id: u64 // 64-bit unsigned magic number used by the bootloader to recognize what information to retrieve
+state: RequestState
+response: u64 // address pointing to the response header
+```
+
+If the request could not be completed successfully, then the bootloader must leave everything as it was (except for state, which must be modified to indicate the cause).
+
+If everything goes well, the bootloader must fill the response field with a VALID and readable memory address that contains the header.
+
+RequestState indicates the status of the request. Its purpose is to help the kernel understand why the response is invalid. Its entries are as follows:
+```
+NONE = 0 // this is not used by the bootloader but by the kernel when defining a structure
+OK = 1  // everything went well
+UNSUPPORTED = 2 // the request is not supported by the hardware
+UNKNOWN_ID = 3  // the request's magic number is invalid
+```
+All enum values are u8 (unsigned 8-bit integers).
+
+# Start/end markers
+Requests will only begin to be read when a start marker is present; everything before the start marker will be ignored. The end marker defines up to where the requests will be read—everything outside these two markers will be disregarded.
+
+An important clarification is that there can only be one start marker and one end marker. If the bootloader encounters more than one of either marker, it must refuse to boot.
+
+The correct way to use requests is as follows:
+```
+start_marker
+// requests
+end_marker
+```
+## Start header
+The start header shall consist of a sequence of four `u64` (unsigned 64‑bit) integers, in the following order:
+```
+[
+  0xC7A1D3F4B9826E5F
+  0x9E4B7C2A1F6D8B30
+  0x5D3F8A7E2C1B9D44
+  0xA84E1B3C7D9F2036
+]
+```
+
+## End header
+The end header  shall consist of a sequence of four `u64` (unsigned 64‑bit) integers, in the following order:
+```
+[
+  0xF2B4C8D1A73E9F60
+  0x3D9A7E4B1C58B2E7
+  0x8E1F6C3A9B04D7A2
+  0x7ACD2E9F1348B6C5
+]
+```
+
+## TODO: add memory layout, requests list

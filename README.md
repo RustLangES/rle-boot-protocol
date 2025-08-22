@@ -81,4 +81,32 @@ The end header  shall consist of a sequence of four `u64` (unsigned 64‑bit) in
 ]
 ```
 
+# Entry memory layout
+
+The executable is recommended to be loaded at 0xffffffff80000000. Lower half executables are not allowed, nor are relocations. The kernel must be loaded in the higher half. The bootloader must be responsible for properly configuring the HHDM, and the kernel must be loaded in that region. By convention, the HHDM will be loaded at 0xFFFF800000000000 (on x86_64 architectures). NOTE to the reader: it should be discussed how to handle this for x86.
+
+# Memory regions
+
+**TODO**
+
+# Machine state at entry
+
+Additionally, the bootloader must load a GDT; the IDT is not the responsibility of the bootloader and MUST NOT be loaded by it. The executable must ensure that a valid IDT is loaded.
+
+The GDT configuration is the same as in limine:
+
+Null descriptor 16-bit code descriptor. Base = 0, limit = 0xffff. Readable. 16-bit data descriptor. Base = 0, limit = 0xffff. Writable. 32-bit code descriptor. Base = 0, limit = 0xffffffff. Readable. 32-bit data descriptor. Base = 0, limit = 0xffffffff. Writable. 64-bit code descriptor. Base and limit irrelevant. Readable. 64-bit data descriptor. Base and limit irrelevant. Writable.
+
+IF flag, VM flag, and direction flag are cleared on entry; other flags are undefined.
+
+PG is enabled (cr0), PE is enabled (cr0), PAE is enabled (cr4), WP is enabled (cr0), LME is enabled (EFER), NX is enabled (EFER) if available. If 5-level paging is requested and available, then 5-level paging is enabled (LA57 bit in cr4).
+
+The A20 gate is opened.
+
+Legacy PIC (if available) and IO APIC IRQs (only those with delivery mode fixed (0b000) or lowest priority (0b001)) are all masked.
+
+In EFI systems, boot services must be exited before booting.
+
+rsp points to the stack; the bootloader must ensure to the kernel that rsp is a valid address. The default size is 64 KiB, but the kernel may specify its own stack size via a request.
+
 ## TODO: add memory layout, requests list

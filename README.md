@@ -31,7 +31,7 @@ All of this is done through structures, which usually follow this base. Some may
 
 ```
 id: u64 // 64-bit unsigned magic number used by the bootloader to recognize what information to retrieve
-state: RequestState
+state: RequestState // note: this is u8
 response: u64 // address pointing to the response header
 ```
 
@@ -87,7 +87,22 @@ The executable is recommended to be loaded at 0xffffffff80000000. Lower half exe
 
 # Memory regions
 
-**TODO**
+This section defines how memory regions are segmented within the boot protocol. The bootloader does not guarantee a specific order; however, it does ensure that each type accurately represents its intended purpose. For instance, the bootloader must guarantee to the executable that any entry marked as USABLE is indeed free and does not contain critical information.
+
+A memory entry is marked as:
+
+```
+RESERVED = 0  // reserved by the firmware, not usable
+BAD_MEMORY = 1  // memory that cannot be used due to physical damage, not usable
+RESPONSES = 2 // the region where the bootloader stores all responses; may be used once the response data is no longer needed
+EXECUTABLES = 3 // contains all kernel-related data, not usable
+MODULES = 4 // contains kernel modules; this region should be omitted if no modules were passed, and may be used after all modules have been read
+USABLE = 5 // free and usable memory, contains no initial data
+FRAMEBUFFER = 6 // this memory is mapped to the framebuffer, not usable
+ACPI_RECLAIMABLE = 7 // memory used by ACPI; may be reclaimed once ACPI tables are no longer in use
+ACPI_NVS = 8 // this section is permanently used by ACPI, cannot be used
+```
+
 
 # Machine state at entry
 
@@ -109,4 +124,4 @@ In EFI systems, boot services must be exited before booting.
 
 rsp points to the stack; the bootloader must ensure to the kernel that rsp is a valid address. The default size is 64 KiB, but the kernel may specify its own stack size via a request.
 
-## TODO: add memory layout, requests list
+## TODO: requests list
